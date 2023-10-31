@@ -14,6 +14,7 @@ import (
 	"github.com/getsops/sops/v3"
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/azkv"
+	"github.com/getsops/sops/v3/fortanixdsm"
 	"github.com/getsops/sops/v3/gcpkms"
 	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/kms"
@@ -69,12 +70,13 @@ type configFile struct {
 }
 
 type keyGroup struct {
-	KMS     []kmsKey
-	GCPKMS  []gcpKmsKey  `yaml:"gcp_kms"`
-	AzureKV []azureKVKey `yaml:"azure_keyvault"`
-	Vault   []string     `yaml:"hc_vault"`
-	Age     []string     `yaml:"age"`
-	PGP     []string
+	KMS         []kmsKey
+	GCPKMS      []gcpKmsKey  `yaml:"gcp_kms"`
+	AzureKV     []azureKVKey `yaml:"azure_keyvault"`
+	Vault       []string     `yaml:"hc_vault"`
+	Age         []string     `yaml:"age"`
+	FortanixDSM []string     `yaml:"fortanix_dsm"`
+	PGP         []string
 }
 
 type gcpKmsKey struct {
@@ -111,6 +113,7 @@ type destinationRule struct {
 type creationRule struct {
 	PathRegex         string `yaml:"path_regex"`
 	KMS               string
+	FortanixDSM       string
 	AwsProfile        string `yaml:"aws_profile"`
 	Age               string `yaml:"age"`
 	PGP               string
@@ -179,6 +182,9 @@ func getKeyGroupsFromCreationRule(cRule *creationRule, kmsEncryptionContext map[
 					return nil, err
 				}
 			}
+			for _, k := range group.FortanixDSM {
+				keyGroup = append(keyGroup, fortanixdsm.NewMasterKeyFromUUID(k))
+			}
 			groups = append(groups, keyGroup)
 		}
 	} else {
@@ -214,6 +220,9 @@ func getKeyGroupsFromCreationRule(cRule *creationRule, kmsEncryptionContext map[
 			return nil, err
 		}
 		for _, k := range vaultKeys {
+			keyGroup = append(keyGroup, k)
+		}
+		for _, k := range fortanixdsm.MasterKeysFromUUIDString(cRule.FortanixDSM) {
 			keyGroup = append(keyGroup, k)
 		}
 		groups = append(groups, keyGroup)

@@ -5,6 +5,7 @@ import (
 
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/azkv"
+	"github.com/getsops/sops/v3/fortanixdsm"
 	"github.com/getsops/sops/v3/gcpkms"
 	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/kms"
@@ -27,6 +28,17 @@ func (ks *Server) encryptWithPgp(key *PgpKey, plaintext []byte) ([]byte, error) 
 		return nil, err
 	}
 	return []byte(pgpKey.EncryptedKey), nil
+}
+
+func (ks *Server) encryptWithFortanixDsm(key *FortanixDsmKey, plaintext []byte) ([]byte, error) {
+	fortanixDsmKey := fortanixdsm.MasterKey{
+		UUID: key.Uuid,
+	}
+	err := fortanixDsmKey.Encrypt(plaintext)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(fortanixDsmKey.EncryptedKey), nil
 }
 
 func (ks *Server) encryptWithKms(key *KmsKey, plaintext []byte) ([]byte, error) {
@@ -94,6 +106,15 @@ func (ks *Server) decryptWithPgp(key *PgpKey, ciphertext []byte) ([]byte, error)
 	return []byte(plaintext), err
 }
 
+func (ks *Server) decryptWithFortanixDsm(key *FortanixDsmKey, ciphertext []byte) ([]byte, error) {
+	fortanixDsmKey := fortanixdsm.MasterKey{
+		UUID: key.Uuid,
+	}
+	fortanixDsmKey.EncryptedKey = string(ciphertext)
+	plaintext, err := fortanixDsmKey.Decrypt()
+	return []byte(plaintext), err
+}
+
 func (ks *Server) decryptWithKms(key *KmsKey, ciphertext []byte) ([]byte, error) {
 	kmsKey := kmsKeyToMasterKey(key)
 	kmsKey.EncryptedKey = string(ciphertext)
@@ -150,6 +171,14 @@ func (ks Server) Encrypt(ctx context.Context,
 	switch k := key.KeyType.(type) {
 	case *Key_PgpKey:
 		ciphertext, err := ks.encryptWithPgp(k.PgpKey, req.Plaintext)
+		if err != nil {
+			return nil, err
+		}
+		response = &EncryptResponse{
+			Ciphertext: ciphertext,
+		}
+	case *Key_FortanixDsmKey:
+		ciphertext, err := ks.encryptWithFortanixDsm(k.FortanixDsmKey, req.Plaintext)
 		if err != nil {
 			return nil, err
 		}
@@ -214,6 +243,8 @@ func keyToString(key *Key) string {
 	switch k := key.KeyType.(type) {
 	case *Key_PgpKey:
 		return fmt.Sprintf("PGP key with fingerprint %s", k.PgpKey.Fingerprint)
+	case *Key_FortanixDsmKey:
+		return fmt.Sprintf("Fortanix DSM key with UUID %s", k.FortanixDsmKey.Uuid)
 	case *Key_KmsKey:
 		return fmt.Sprintf("AWS KMS key with ARN %s", k.KmsKey.Arn)
 	case *Key_GcpKmsKey:
@@ -252,6 +283,14 @@ func (ks Server) Decrypt(ctx context.Context,
 	switch k := key.KeyType.(type) {
 	case *Key_PgpKey:
 		plaintext, err := ks.decryptWithPgp(k.PgpKey, req.Ciphertext)
+		if err != nil {
+			return nil, err
+		}
+		response = &DecryptResponse{
+			Plaintext: plaintext,
+		}
+	case *Key_FortanixDsmKey:
+		plaintext, err := ks.decryptWithFortanixDsm(k.FortanixDsmKey, req.Ciphertext)
 		if err != nil {
 			return nil, err
 		}

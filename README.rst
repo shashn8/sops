@@ -189,7 +189,6 @@ Encrypting using age
 
 `age <https://age-encryption.org/>`_ is a simple, modern, and secure tool for
 encrypting files. It's recommended to use age over PGP, if possible.
-
 You can encrypt a file for one or more age recipients (comma separated) using
 the ``--age`` option or the **SOPS_AGE_RECIPIENTS** environment variable:
 
@@ -385,6 +384,40 @@ To easily deploy Vault locally: (DO NOT DO THIS FOR PRODUCTION!!!)
     EOF
 
     $ sops --verbose -e prod/raw.yaml > prod/encrypted.yaml
+
+Encrypting using Fortanix DSM
+~~~~~~~~~~~~~~~~~~~~~~~~
+Assuming that there is a key stored in DSM and for sops to be able to access it, Fortanix API Key and Endpoint should be passed as environment variables named "FORTANIX_API_KEY" and "FORTANIX_API_ENDPOINT" respectively.
+The Fortanix Client accesses DSM through app API key. Make sure to provide API key of an app that has access to the key in DSM.
+
+.. code:: sh
+
+    $ export FORTANIX_API_KEY=<app_api_key>
+    $ export FORTANIX_API_ENDPOINT=<api_endpoint>
+
+Alternatively, you can choose to set up sdkms-cli (refer https://support.fortanix.com/hc/en-us/sections/17701671182356-Fortanix-DSM-CLI)
+
+.. code:: sh
+    $ # Login using your app api key, default endpoint for sdkms-cli is `https://apps.smartkey.io/`, it can be changed by exporting whatever your endpoint is to the environment variable named FORTANIX_API_ENDPOINT.
+   
+    $ sdkms-cli app-login
+    Logging in https://apps.smartkey.io/ 
+    Please enter your API Key: <enter_apikey>
+
+    $ sdkms-cli list-keys
+    1aea151c-699a-4ef3-acbf-c015a943c396 "sops_aes" "None" ObjectType.AES 256
+
+Encrypting/decrypting using Fortanix DSM requires a key UUID. 
+You can get UUIDs of all the keys in your app as shown above, or you can create a new key using sdkms-cli and get its UUID similarly.
+
+Encrypting/decrypting using Fortanix DSM requires a key UUID. 
+Copy the UUID of the key that you want use to perform encryption/decryption, and use it in sops command like this::
+
+    $ sops --encrypt --fortanix-dsm <UUID> test.yaml > test.enc.yaml
+
+And decrypt it using::
+
+     $ sops --decrypt test.enc.yaml
 
 Adding and removing keys
 ~~~~~~~~~~~~~~~~~~~~~~~~

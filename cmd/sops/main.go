@@ -26,6 +26,7 @@ import (
 	publishcmd "github.com/getsops/sops/v3/cmd/sops/subcommand/publish"
 	"github.com/getsops/sops/v3/cmd/sops/subcommand/updatekeys"
 	"github.com/getsops/sops/v3/config"
+	"github.com/getsops/sops/v3/fortanixdsm"
 	"github.com/getsops/sops/v3/gcpkms"
 	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/keys"
@@ -562,6 +563,12 @@ func main() {
 			Name:  "disable-version-check",
 			Usage: "do not check whether the current version is latest during --version",
 		},
+
+		cli.StringFlag{
+			Name:   "fortanix-dsm",
+			Usage:  "comma separated list of FORTANIX DSM UUIDs",
+			EnvVar: "SOPS_FORTANIX_DSM_UUIDS",
+		},
 		cli.StringFlag{
 			Name:   "kms, k",
 			Usage:  "comma separated list of KMS ARNs",
@@ -631,6 +638,15 @@ func main() {
 		cli.StringFlag{
 			Name:  "rm-azure-kv",
 			Usage: "remove the provided comma-separated list of Azure Key Vault key URLs from the list of master keys on the given file",
+		},
+
+		cli.StringFlag{
+			Name:  "add-fortanix-dsm",
+			Usage: "add the provided comma-separated list of FORTANIX DSM to the list of master keys on the given file",
+		},
+		cli.StringFlag{
+			Name:  "rm-fortanix-dsm",
+			Usage: "remove the provided comma-separated list of FORTANIX DSM UUIDS from the list of master keys on the given file",
 		},
 		cli.StringFlag{
 			Name:  "add-kms",
@@ -834,6 +850,9 @@ func main() {
 			for _, k := range kms.MasterKeysFromArnString(c.String("add-kms"), kmsEncryptionContext, c.String("aws-profile")) {
 				addMasterKeys = append(addMasterKeys, k)
 			}
+			for _, k := range fortanixdsm.MasterKeysFromUUIDString(c.String("add-fortanix-dsm")) {
+				addMasterKeys = append(addMasterKeys, k)
+			}
 			for _, k := range pgp.MasterKeysFromFingerprintString(c.String("add-pgp")) {
 				addMasterKeys = append(addMasterKeys, k)
 			}
@@ -864,6 +883,9 @@ func main() {
 
 			var rmMasterKeys []keys.MasterKey
 			for _, k := range kms.MasterKeysFromArnString(c.String("rm-kms"), kmsEncryptionContext, c.String("aws-profile")) {
+				rmMasterKeys = append(rmMasterKeys, k)
+			}
+			for _, k := range fortanixdsm.MasterKeysFromUUIDString(c.String("rm-fortanix-dsm")) {
 				rmMasterKeys = append(rmMasterKeys, k)
 			}
 			for _, k := range pgp.MasterKeysFromFingerprintString(c.String("rm-pgp")) {
@@ -1097,9 +1119,15 @@ func keyGroups(c *cli.Context, file string) ([]sops.KeyGroup, error) {
 	var azkvKeys []keys.MasterKey
 	var hcVaultMkKeys []keys.MasterKey
 	var ageMasterKeys []keys.MasterKey
+	var fortanixDsmKeys []keys.MasterKey
 	kmsEncryptionContext := kms.ParseKMSContext(c.String("encryption-context"))
 	if c.String("encryption-context") != "" && kmsEncryptionContext == nil {
 		return nil, common.NewExitError("Invalid KMS encryption context format", codes.ErrorInvalidKMSEncryptionContextFormat)
+	}
+	if c.String("fortanix-dsm") != "" {
+		for _, k := range fortanixdsm.MasterKeysFromUUIDString(c.String(("fortanix-dsm"))) {
+			fortanixDsmKeys = append(fortanixDsmKeys, k)
+		}
 	}
 	if c.String("kms") != "" {
 		for _, k := range kms.MasterKeysFromArnString(c.String("kms"), kmsEncryptionContext, c.String("aws-profile")) {
@@ -1143,7 +1171,7 @@ func keyGroups(c *cli.Context, file string) ([]sops.KeyGroup, error) {
 			ageMasterKeys = append(ageMasterKeys, k)
 		}
 	}
-	if c.String("kms") == "" && c.String("pgp") == "" && c.String("gcp-kms") == "" && c.String("azure-kv") == "" && c.String("hc-vault-transit") == "" && c.String("age") == "" {
+	if c.String("kms") == "" && c.String("pgp") == "" && c.String("gcp-kms") == "" && c.String("azure-kv") == "" && c.String("hc-vault-transit") == "" && c.String("age") == "" && c.String("fortanix-dsm") == "" {
 		conf, err := loadConfig(c, file, kmsEncryptionContext)
 		// config file might just not be supplied, without any error
 		if conf == nil {
@@ -1157,6 +1185,7 @@ func keyGroups(c *cli.Context, file string) ([]sops.KeyGroup, error) {
 	}
 	var group sops.KeyGroup
 	group = append(group, kmsKeys...)
+	group = append(group, fortanixDsmKeys...)
 	group = append(group, cloudKmsKeys...)
 	group = append(group, azkvKeys...)
 	group = append(group, pgpKeys...)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/azkv"
+	"github.com/getsops/sops/v3/fortanixdsm"
 	"github.com/getsops/sops/v3/gcpkms"
 	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/keys"
@@ -42,6 +43,14 @@ func KeyFromMasterKey(mk keys.MasterKey) Key {
 					VaultAddress: mk.VaultAddress,
 					EnginePath:   mk.EnginePath,
 					KeyName:      mk.KeyName,
+				},
+			},
+		}
+	case *fortanixdsm.MasterKey:
+		return Key{
+			KeyType: &Key_FortanixDsmKey{
+				FortanixDsmKey: &FortanixDsmKey{
+					Uuid: mk.UUID,
 				},
 			},
 		}
