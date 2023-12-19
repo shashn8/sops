@@ -6,7 +6,8 @@ pool:
 
 steps:
 - script: 
-    ls 
+    apt install tree
+    tree /home/vsts/work
     
   displayName: 'Run a one-line script'
 
