@@ -6,9 +6,8 @@ pool:
 
 steps:
 - script: 
-    echo Hello, world! 
-    ls
-    pwd
+    ls 
+    
   displayName: 'Run a one-line script'
 
 - script: |
