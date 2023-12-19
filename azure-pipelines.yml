@@ -5,7 +5,7 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
-- script: 
+- script: |
     sudo apt install tree
     sudo tree /home/vsts/work
     
