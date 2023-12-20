@@ -10,11 +10,6 @@ steps:
     
   displayName: 'Run a one-line script'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
-
 - checkout: self
   displayName: 'Checkout repository'
 
@@ -23,5 +18,6 @@ steps:
     echo "Repository Path: $(Build.Repository.LocalPath)"
     # You can now use this path for your build and test actions
     cd $(Build.Repository.LocalPath)
+    ls
     # Add your build and test commands here
   displayName: 'Build and test'
