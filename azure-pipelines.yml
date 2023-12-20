@@ -6,7 +6,7 @@ pool:
 
 steps:
 - script: |
-    ls https://dev.azure.com/shashidharnaraparaju/_git/wipro
+    echo $(Build.SourcesDirectory)
     
   displayName: 'Run a one-line script'
 
