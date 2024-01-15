@@ -1,0 +1,46 @@
+# trigger:
+# - main
+
+# pool:
+#   vmImage: ubuntu-latest
+
+# steps:
+# - script: |
+#     echo $(Build.SourcesDirectory)
+    
+#   displayName: 'Run a one-line script'
+
+# - checkout: self
+#   displayName: 'Checkout repository'
+
+# - script: |
+#     # Use the Build.Repository.LocalPath variable to get the repository path
+#     echo "Repository Path: $(Build.Repository.LocalPath)"
+#     # You can now use this path for your build and test actions
+#     cd $(Build.Repository.LocalPath)
+#     ls
+#     # Add your build and test commands here
+#   displayName: 'Build and test'
+
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: 'YourAzureSubscription'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: 'az artifacts universal download --organization https://dev.azure.com/shashidharnaraparaju/ --feed shashidharnaraparaju --name my-first-package --version 0.0.1 --path $(Build.ArtifactStagingDirectory)/myBinary/'
+
+- script: |
+    cd $(Build.ArtifactStagingDirectory)/myBinary/
+    tar -xzf my-first-package.0.0.1.tar.gz
+  displayName: 'Extract Binary'
+
+- script: |
+    ./myBinary/sops
+  displayName: 'Run Binary Command'
